@@ -1,0 +1,8 @@
+*
+!.gitignore
+!agents/
+!agents/**
+!skills/
+!skills/**
+!rules/
+!rules/**
