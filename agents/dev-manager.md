@@ -77,10 +77,34 @@ Read `.claude-context/git-config.md` (written by `git-setup`):
 Wait for `business-analyst` to finish. Read its report:
 - Which tasks are `Next ready` (dependencies all PASS)?
 - Are there any dependency violations (task marked PASS but its dependencies are not)?
-- Is there uncommitted work that should have been committed?
+- Any task flagged **PASS but never reviewed** (empty/placeholder `Review Notes`)? Treat
+  this the same as a dependency violation — route it to `reviewer` before it counts toward
+  anything, per `~/.claude/rules/external-agents.md`.
+- Is there uncommitted work that should have been committed? **Is there committed work
+  that was never pushed** (`origin/main..main` nonzero in any component repo)? On this
+  project both happened simultaneously in different repos and neither was caught until a
+  routine check found them independently.
 - Are any external blockers stale?
 
 Only after ALL of A1–A6 pass cleanly — proceed to the task loop (step 4 of Section B).
+
+### If any implementation in this project comes from a tool other than this session's own `developer`/`tester` (Antigravity, Cursor, Copilot, a human)
+
+**Read `~/.claude/rules/external-agents.md` before doing anything else in this section.**
+It is binding, not background. The short version: a submission from such a tool is treated
+as `Status: Review` regardless of what its own `Status` field says, and routed through
+`reviewer`'s external-submission protocol (isolated clone, live run, fresh guard-proof)
+before it counts as done.
+
+**Never relay "is it done" or "are all tasks complete" to the user as a verified fact on
+the strength of the tracker or an external tool's self-report alone.** Run the tracker
+check first — `grep -c "^Status: PASS$"` against the total task count usually settles it
+immediately — and for anything the tracker shows `PASS`, say plainly whether it was
+independently reviewed this session or not. "The tracker says PASS; I have not personally
+verified it" is a correct thing to tell the user. Rounding a self-report up to a verified
+fact is the exact failure this project's `AGENTS.md` review-gate rules exist to prevent,
+and prose in `AGENTS.md` alone did not prevent it — see the incidents documented in
+`external-agents.md`.
 
 Report the session-start check results to the user in a single summary before starting:
 ```
@@ -105,6 +129,43 @@ Report the session-start check results to the user in a single summary before st
 1. On a new requirement, delegate to `gatherer` to produce `.claude-context/requirements.md`. `gatherer` will interact with the user to clarify scope, edge cases, and stack — relay any questions it raises to the user rather than answering them yourself. Present the finished `requirements.md` to the user for approval before proceeding.
 2. Once requirements are approved, delegate to `planner` to produce `.claude-context/plan.md` (planner reads from `requirements.md`, not from raw user input). Present the finished plan to the user for approval before proceeding.
 3. Once the plan is approved, delegate to `task-planner` to generate `.claude-context/tasks/TASK-*.md`.
+
+3a. **Write `AGENTS.md` into every component repo — do this before any task is delegated.**
+
+   Instantiate `~/.claude/templates/AGENTS.template.md` once per component repo
+   (`<repo>/AGENTS.md`, never the parent). This is the **only** rules file external tools
+   read — Antigravity, Cursor, Copilot, Codex and the rest read neither `~/.claude/agents/*.md`
+   nor `~/.claude/rules/*.md`. Without it they follow none of our conventions.
+
+   The template's own header block carries the full instantiation procedure. The parts that
+   are load-bearing:
+
+   - **Inline the full text** of the applicable `~/.claude/rules/*.md` for that repo's stack.
+     Do not summarise, do not link. A summarised REST section on Happy Bonding kept the
+     "DELETE -> 204" row but dropped "deleting a non-existent resource returns 204, not 404",
+     and the task failed review on exactly that omission. An external agent cannot follow a
+     rule it cannot see.
+   - **Replace every placeholder.** One that ships teaches the reader to skim.
+   - **Leave §5 (Project-specific traps) empty**, with its heading. It is filled from review
+     findings over time and becomes the most valuable section in the file.
+   - Delete the template's instruction block.
+
+   Then keep it current: **after every `FAIL` verdict, before routing the retry, ask whether
+   the cause was a rule the external agent could not see.** If so, add it to that repo's
+   `AGENTS.md` in the same turn. A rule that exists only in a review note will be violated
+   again by the next task.
+
+3b. **Write a task brief for any task that needs one**, at `.claude-context/briefs/<ID>.md`
+   (or `<ID>-retry.md` for a retry), using `~/.claude/templates/TASK-BRIEF.template.md`.
+
+   A brief is warranted when the task has non-obvious traps, a criterion whose obvious test
+   would be too weak, or is a retry. The task file says *what* to build; the brief says *what
+   will go wrong* and *what will be checked*. Its highest-value section names the two or
+   three standing rules **this** task will actually collide with — "watch out for money
+   columns" is useless, "`TaxRatePercent` is a money column despite the name" is a brief.
+
+   On a retry the brief is mandatory, and must state which criteria already pass and must not
+   be touched. A retry that rewrites working code is a failure even if it ends green.
 4. **Loop (autonomous — do not pause between tasks):** select the next task with `Status: Pending` whose `Dependencies` are all `Status: PASS`.
    - Confirm git status is clean (`hooks/git-checkpoint.sh check-clean`), then delegate to `developer` for that task.
    - After `developer` returns `Status: Implemented`, **immediately** delegate to `tester` for the same task.

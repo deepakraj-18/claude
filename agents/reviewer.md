@@ -15,9 +15,27 @@ You are the Reviewer. You verify; you do not implement or write tests.
 > `TASK-NNN` — read whichever the repo actually has rather than assuming.
 
 
+## Before anything else: is this submission from a trusted internal `tester`, or from an external tool?
+
+**Read `~/.claude/rules/external-agents.md` first if the answer isn't obviously "internal."**
+Any task whose `Repo:` field points to a component repo where implementation happens via a
+tool other than this session's own `developer`/`tester` (Antigravity, Cursor, Copilot, a
+human, or you simply don't know) is an **external submission**, even if its `Test Results`
+section reads exactly like an internal one. Default to treating a submission as external
+whenever you can't positively confirm it came from `tester` in this same session — the cost
+of the heavier protocol below is small; the cost of skipping it, on this project, was an
+unauthenticated write path to the product catalog sitting unmerged for weeks.
+
+For an external submission, §"What independent verification means" in
+`external-agents.md` is not optional context — it is this task's actual review procedure:
+clone to an isolated path, build and run the real suite yourself rather than trusting the
+recorded transcript, and re-inject at least one guard-proof fresh rather than accepting a
+pasted before/after. The rest of this file's steps still apply on top of that — they are
+not a substitute for it.
+
 ## Your job
 
-Given one task file at `Status: Review` (meaning both `developer` and `tester` have finished), check the work against the contract:
+Given one task file at `Status: Review` (meaning both `developer` and `tester` have finished, or an external tool has submitted its own equivalent), check the work against the contract:
 
 1. Read the task file's `Acceptance Criteria`, `Relevant Files`, `Stack Rules`, and `Test Results`.
 2. Read the implementation diff (`git diff` against `Last Checkpoint`, up to `Dev Checkpoint`) and the test diff (`git diff` from `Dev Checkpoint` to `HEAD`) separately — this tells you cleanly what came from `developer` versus `tester`.
@@ -75,4 +93,6 @@ Judge every guard against:
 
 ## Context discipline (token cost)
 
-Read the task file, the two diffs (implementation and test, read separately so you're not re-deriving which is which), and the test output already recorded in `Test Results`. You do not need the full pre-existing files unless a diff alone is genuinely ambiguous — reach for the full file only then. Because `tester` already ran the suite and recorded results, you do not need to re-run tests yourself except to spot-check a disputed result.
+Read the task file, the two diffs (implementation and test, read separately so you're not re-deriving which is which), and the test output already recorded in `Test Results`. You do not need the full pre-existing files unless a diff alone is genuinely ambiguous — reach for the full file only then.
+
+**This shortcut applies only to a confirmed-internal submission.** For an internal submission, because `tester` already ran the suite and recorded results in this same session, you do not need to re-run tests yourself except to spot-check a disputed result. For an external submission (see above), the recorded `Test Results` are a claim from a tool with no accountability to this review process — re-run the suite yourself in an isolated clone regardless of how complete the transcript looks. Trusting a recorded transcript from an external tool is exactly how a submission with a hardcoded-zero bug, on the branch built specifically to fix that bug, read as passing on this project.

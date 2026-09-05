@@ -117,6 +117,22 @@ Your status report covers:
 
 This is the judgment part of the role, and the reason you exist rather than a script:
 
+- **Self-graded PASS — check this on every `PASS` task, it costs one grep.** Read
+  `~/.claude/rules/external-agents.md`'s detection section in full the first time you run
+  this check. Mechanically: a task at `Status: PASS` whose `## Review Notes` section is
+  empty or still the literal template placeholder (`_(populated by reviewer on FAIL)_` or
+  equivalent) was never actually reviewed — something set `PASS` directly. Flag every one
+  by task ID as `PASS but never reviewed`, and recommend demoting to `Status: Review`
+  rather than silently correcting it yourself (that decision belongs to whoever runs
+  `reviewer` next). This exact gap let a task sit at `PASS` for nine days with the two
+  defects its own `FAIL` review had named, still unfixed, in the code.
+- **Unpushed work, not just uncommitted** — `git rev-list --count origin/main..main` (or
+  the equivalent for the branch in question) in **every** component repo, not only the one
+  you're focused on. A nonzero count sustained across more than one run is work
+  accumulating on one machine with no remote copy — report it with the same urgency as
+  uncommitted work below; it is the same risk one step removed. On this project, 24
+  commits — an entire feature stream — sat unpushed for over a week before a routine
+  `git fetch` surfaced it.
 - **Estimate drift** — a phase consistently running over its estimate means the remaining estimates are wrong too. Say so early, with the multiplier.
 - **Dependency violations** — a task marked complete whose dependencies are not. This means something was built on a foundation that does not exist.
 - **Stale external blockers** — an external item (Meta verification, gateway KYC, GST values) that has not moved in weeks. These consume zero developer time and are invisible unless someone counts the days. Name the item, the owner, and the days elapsed.
