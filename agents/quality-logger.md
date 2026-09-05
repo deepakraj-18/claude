@@ -44,6 +44,10 @@ git diff HEAD .claude-context/tasks/       # Any in-flight changes
 
 Read:
 - `ID`, `Title`, `Failed Stage`, `Attempts`, `Review Notes`
+- `Claimed By` — who or what actually implemented this. Per `~/.claude/rules/external-agents.md`,
+  a value other than an internal agent name (`developer`, `tester`) means an external tool
+  produced this work — record it as-is in `Produced by` below. If the field is empty (a
+  task predating this convention), record `unknown` and note that gap rather than guessing.
 - `Stack Rules` listed in the task — which rules were supposed to govern this work
 - `Acceptance Criteria` — which criterion was violated
 
@@ -73,6 +77,7 @@ Append a new entry to `.claude-context/quality-log.md` using this format:
 
 **Verdict:** FAIL / BLOCKED / ESCALATED
 **Stage:** Developer / Tester / Security / Requirements
+**Produced by:** internal / external: {tool name} / human / unknown
 **Attempts used:** N / 2
 **Stack rules in scope:** {rules listed in the task}
 
@@ -92,6 +97,11 @@ Append a new entry to `.claude-context/quality-log.md` using this format:
 - [ ] Rule file: `~/.claude/rules/{filename}.md` — add: {what to add}
 - [ ] Agent brief: `~/.claude/agents/{agent}.md` — clarify: {what to clarify}
 - [ ] Task template: task-planner should add AC: {what criterion}
+- [ ] AGENTS.md §5 in `{repo}`: add trap — {tool name if external}: {what to add}. Use this
+      one whenever `Produced by` is `external: <tool>` and the failure is something that
+      repo's own `AGENTS.md` could have named as a known trap — see
+      `~/.claude/rules/external-agents.md`. Attribute it to the tool now, in the same run
+      that found it; a note added months later is a guess at which tool it was about.
 - [ ] No change needed — one-off human error
 ```
 
@@ -100,9 +110,17 @@ Append a new entry to `.claude-context/quality-log.md` using this format:
 Read `~/.claude/retrospective/patterns.md`. Search for an existing pattern entry matching the same:
 - Root cause category, AND
 - The same rule file or agent, AND
-- Similar description
+- Similar description, AND
+- **For `RULE-MISS` and `AGENT-BRIEF` only: the same `Produced by`.** An external tool
+  ignoring an instruction and a different external tool (or an internal agent) doing the
+  same thing are not evidence of the same pattern, even if the symptom reads identically —
+  merging them points the fix at the wrong target (a rule change helps everyone; a tool's
+  own `AGENTS.md` §5 trap helps only that tool, and needs that tool named to be useful).
+  For `RULE-GAP`, `ARCH-GAP`, `ENV-ISSUE`, and `REQ-GAP`, keep matching across tools as
+  before — those categories aren't tool-specific by nature.
 
-**If this is the FIRST occurrence** of this root cause: add a new entry to `patterns.md` with `Count: 1`.
+**If this is the FIRST occurrence** of this root cause (respecting the `Produced by` split
+above): add a new entry to `patterns.md` with `Count: 1`.
 
 **If this is a REPEAT** (count ≥ 2 for the same pattern): increment the count AND flag it as `🔴 ACTION REQUIRED` — a pattern that repeats means a rule or agent brief is structurally wrong, not a one-off.
 
@@ -111,6 +129,8 @@ Pattern entry format:
 ### [PATTERN-NNN] {Short name}
 
 **Root cause category:** {code}
+**Produced by:** internal / external: {tool name} / human / unknown — for RULE-MISS and
+AGENT-BRIEF this is part of what makes two occurrences the same pattern; see above.
 **Affected rule/agent:** `~/.claude/rules/{file}.md` or `~/.claude/agents/{file}.md`
 **Count:** N occurrences
 **Projects affected:** {project names}

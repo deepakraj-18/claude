@@ -66,6 +66,20 @@ assumption does not hold here.
    Copy in whatever gitignored config the app needs to actually run (`appsettings.Development.json`,
    `.env.local`) — copy, never author new secrets into a review clone.
 
+   **A separate file tree is not enough on its own — the actual collision above was a
+   shared port and a shared database, not shared files.** The review clone's copied config
+   pointed at the same running port and the same LocalDB database name as the live
+   checkout, so two processes fought over the same lock even though every file was in a
+   different directory. Before starting the review's own run:
+   - **Use a different port** than the live checkout — don't assume the default is free.
+   - **Use a different database name** in the copied config (append something like
+     `_ReviewClone`) — never point a review run at the live checkout's database, even
+     read-only; a migration or seed step run during review can mutate it.
+   - **Check for an already-bound port or a running instance of the app** before starting
+     yours (`lsof`/`netstat` for the port, a process list check for the app name). If one
+     is running, that's a signal the external tool is mid-session — proceed with your own
+     isolated port/DB regardless, since the point is non-interference, not waiting.
+
 2. **Build and run the real suite yourself. Do not read the submitted transcript as fact.**
    A reported "172 passing" is a claim. Run it. If it's a web app, actually start it
    (`dotnet run`, `npm run dev`) and exercise it as a live client would — this project's

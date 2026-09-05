@@ -1,0 +1,32 @@
+deny	git clean -fd
+deny	git clean -n
+deny	git clean -fdx
+deny	git reset --hard
+deny	git reset --hard HEAD~1
+deny	git checkout -- src/file.cs
+deny	git push --force origin main
+deny	git branch -D main
+deny	rm -rf /
+deny	rm -rf ~
+deny	rm -rf .
+deny	rm -rf *
+deny	DROP TABLE Orders
+deny	dd if=/dev/zero of=/dev/sda
+ask	rm -rf node_modules
+ask	rm -rf ./build
+ask	rm -r obj
+ask	rm *.tmp
+ask	git stash drop
+ask	DELETE FROM Orders WHERE Id=1
+allow	git status
+allow	git log --oneline -1
+allow	dotnet build HappyBonding.sln
+allow	dotnet test
+allow	git checkout -b feature/TASK-005-entities
+allow	npm install
+allow	git commit -m "[TASK-001] Add scaffold"
+allow	rm scratch.txt
+allow	git clone https://github.com/x/y
+allow	git add .
+allow	git diff HEAD
+allow	ls -la src/

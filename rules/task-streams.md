@@ -87,6 +87,8 @@ Every task file opens with machine-readable state, then human-readable spec:
 Status: Pending
 Failed Stage:
 Attempts: 0
+Claimed By: (none yet)
+Claimed At: (none yet)
 Last Checkpoint: (none yet)
 Dev Checkpoint: (none yet)
 
@@ -115,6 +117,24 @@ Spec: docs/task_plan.md
   is useless for reverting a component.
 - `Blocks` is the inverse of `Dependencies`. Maintaining both makes "what does this unblock?"
   answerable without scanning every file, which is what `dev-manager` needs to pick the next task.
+
+## Claiming a task — before you write any code
+
+Whoever picks up a task — Claude's own `developer`, or an external tool — claims it before
+implementing, so two developers (internal and external, or two different external tools on
+the same project) can never both start the same task without either one noticing.
+
+**The moment you record `Last Checkpoint`** (already the first step of the working loop),
+also write `Claimed By: <your tool name or agent name>` and `Claimed At: <UTC timestamp>`,
+**commit that field-write alone, and push it immediately — before writing any
+implementation code.**
+
+This turns claiming into an ordinary git race rather than a lock server: task files live in
+the parent repo, so whichever push lands first wins. If your push is rejected
+non-fast-forward, pull and check — if the task is now claimed by someone else, **stop and
+pick a different ready task.** Do not implement a task you have not successfully claimed
+and pushed first; the `pre-commit`/CI gate (see `templates/pre-commit.template.sh`) rejects
+any `Status` past `Pending` with an empty `Claimed By` field for exactly this reason.
 
 ## Commits and branches
 

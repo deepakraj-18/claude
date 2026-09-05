@@ -1,0 +1,51 @@
+# TEMPLATE — instantiated by `devops-engineer` at project bootstrap as a job inside the
+# parent repo's existing validation workflow (or as its own workflow file if none exists
+# yet). Server-side twin of pre-commit.template.sh: that hook only fires on a machine
+# where `core.hooksPath` was actually set — this holds regardless, for any commit that
+# reaches the remote by any path (a fresh clone without the hook wired, a direct push from
+# a tool that never runs local hooks, a human editing the file on GitHub directly).
+#
+# Two checks, matching the pre-commit hook exactly:
+#   1. Status: PASS requires a real, non-placeholder Review Notes section.
+#   2. Status past Pending requires a non-empty Claimed By field.
+#
+# Built from an incident on a real project: a task was reviewed FAIL, then found nine
+# days later back at Status: PASS with the same defects still in the code, with no
+# technical control in place at the time to catch it. See
+# ~/.claude/rules/external-agents.md for the full incident record.
+
+task-review-discipline:
+  name: No task is PASS without a review record, none unclaimed past Pending
+  runs-on: ubuntu-latest
+  steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: false
+
+    - name: Check task-file review and claim discipline
+      run: |
+        set -e
+        failed=0
+        shopt -s nullglob
+        PLACEHOLDER='_(populated by reviewer on FAIL)_'
+
+        for f in .claude-context/tasks/*/*.md; do
+          if grep -qE '^Status: PASS[[:space:]]*$' "$f"; then
+            notes=$(awk '/^## Review Notes/{flag=1; next} /^## /{flag=0} flag' "$f")
+            trimmed=$(printf '%s' "$notes" | tr -d '[:space:]')
+            if [ -z "$trimmed" ] || printf '%s' "$notes" | grep -qF "$PLACEHOLDER"; then
+              echo "::error file=$f::Status: PASS but ## Review Notes is empty or still the template placeholder — no review record exists for this task."
+              failed=1
+            fi
+          fi
+
+          if grep -qE '^Status: (Implemented|Review|PASS)[[:space:]]*$' "$f"; then
+            claimed_by=$(grep -E '^Claimed By:' "$f" | sed 's/^Claimed By:[[:space:]]*//')
+            if [ -z "$claimed_by" ]; then
+              echo "::error file=$f::Status is past Pending but Claimed By is empty — no record of who claimed this task before starting it."
+              failed=1
+            fi
+          fi
+        done
+
+        exit $failed

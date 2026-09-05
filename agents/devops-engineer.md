@@ -147,6 +147,39 @@ git clone --recurse-submodules https://github.com/<owner>/<project>.git
 git submodule update --init --recursive
 ```
 
+### 4. Wire the task-review-discipline gate — unconditional, every project
+
+Read `.claude-context/git-config.md`'s `Implementation` column, but wire this **regardless
+of Internal, External, or Mixed** — a real project found 44 of 56 tasks marked `PASS` across its
+history had no review record at all, and most of that was Claude-implemented, not only
+external tool work. This is not a mitigation for one kind of developer; it protects
+review-discipline generally. See `~/.claude/CLAUDE.md`'s "Claude is the brain" section and
+`~/.claude/rules/external-agents.md` for why.
+
+```bash
+mkdir -p scripts/hooks
+cp ~/.claude/templates/pre-commit.template.sh scripts/hooks/pre-commit
+chmod +x scripts/hooks/pre-commit
+git config core.hooksPath scripts/hooks
+```
+
+Instantiate `~/.claude/templates/ci-review-gate.template.yml` as a job inside the parent
+repo's validation workflow (create `.github/workflows/validate.yml` if none exists yet;
+add it as one more job if one already does — do not create a second workflow file for it).
+
+Commit both:
+```bash
+git add scripts/hooks/pre-commit .github/workflows/validate.yml
+git commit -m "Add task-review-discipline gate (pre-commit + CI)"
+git push
+```
+
+If `Implementation` is `External: <tool>` **or `Mixed: <tool>`** for any component repo,
+also confirm `dev-manager` has instantiated that repo's `AGENTS.md` (step 3a of
+`dev-manager.md`) before any task is assigned there — an external tool with no `AGENTS.md`
+has no contract to follow
+at all, which is worse than an unenforced one.
+
 ---
 
 ## Submodule discipline

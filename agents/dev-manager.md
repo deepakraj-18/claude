@@ -66,6 +66,11 @@ If any task shows `Implemented` or `Review` status, it was mid-flight when the s
 - `Status: Implemented` — `developer` finished but `tester` hasn't run. Resume at the tester step for that task.
 - `Status: Review` — `tester` finished but `reviewer` hasn't run. Resume at the reviewer step for that task.
 - Do NOT restart from the developer step — work was already done. Pick up where it stopped.
+- **Read `Claimed By` alongside `Status`.** If it names an external tool, resume at `reviewer`'s
+  external-submission protocol (`~/.claude/rules/external-agents.md`), not the internal
+  shortcut — do not assume "mid-flight" means "left off by this session." If `Claimed By`
+  is empty on a task that isn't `Pending`, that's a gap the review-discipline gate should
+  have caught at commit time; report it rather than silently filling it in.
 
 ### A5. Environment Confirmation
 Read `.claude-context/git-config.md` (written by `git-setup`):
@@ -132,10 +137,48 @@ Report the session-start check results to the user in a single summary before st
 
 3a. **Write `AGENTS.md` into every component repo — do this before any task is delegated.**
 
-   Instantiate `~/.claude/templates/AGENTS.template.md` once per component repo
+   **This step is not only-at-bootstrap.** Re-run it the moment external tooling is
+   introduced or changes on any repo, at any point in the project — not just when the
+   project first starts. If the user says "I'm going to have Cursor/Antigravity/Copilot
+   work on the backend now" partway through, that sentence is the trigger: update
+   `git-config.md`'s `Implementation` column for that repo immediately, instantiate
+   `AGENTS.md` before the next task is assigned there, and confirm `devops-engineer` has
+   wired the review-discipline gate on that repo (retrofit it if this project predates
+   that step — see `templates/pre-commit.template.sh`). Do not wait for a natural
+   session-start checkpoint. On Happy Bonding, `AGENTS.md` was written reactively, mid
+   project, only after an external tool had already been implementing without any contract
+   for over a week — treat "introduced mid-project" as the normal case to plan for, not an
+   exception discovered after the fact.
+
+   Either way (initial bootstrap or a mid-project trigger), read `.claude-context/git-config.md`'s `Implementation` column (written by
+   `git-setup`, wired by `devops-engineer` at bootstrap — see `~/.claude/CLAUDE.md`'s
+   "Claude is the brain" section). **Skip this step only for a repo declared purely
+   `Internal`** — Claude's own `developer`/`tester` need no `AGENTS.md`. Instantiate it for
+   `External: <tool>` **and for `Mixed: <tool>`** — a repo where Claude sometimes
+   implements directly still needs the contract in place for whenever the external tool
+   touches it, and `Mixed` is the normal case, not a rare one (see `~/.claude/CLAUDE.md`).
+   If the column is missing entirely, or says only `Internal` but you have any reason to
+   doubt that's still true, instantiate anyway — the cost of an unused `AGENTS.md` is far
+   lower than the cost of an external tool with no contract to follow.
+
+   This is a repo-level, one-time decision about whether the *file* needs to exist at all.
+   It does not predict or constrain which specific tasks in that repo end up
+   externally-implemented — that is decided task by task and recorded in each task's own
+   `Claimed By` field, which is what `reviewer` actually keys off, not this column.
+
+   Instantiate `~/.claude/templates/AGENTS.template.md` once per component repo that isn't
+   purely `Internal`
    (`<repo>/AGENTS.md`, never the parent). This is the **only** rules file external tools
    read — Antigravity, Cursor, Copilot, Codex and the rest read neither `~/.claude/agents/*.md`
    nor `~/.claude/rules/*.md`. Without it they follow none of our conventions.
+
+   **Also instantiate `~/.claude/templates/START_HERE.template.md`** as `<repo>/START_HERE.md`
+   in the same repo, at the same time. `AGENTS.md` is the full contract; `START_HERE.md` is
+   what the human actually pastes as their first message when opening a session with the
+   external tool ("read START_HERE.md") — a short kickoff that points at `AGENTS.md`, gets
+   the tool to state its task and claim status back, and gets it moving. Keep the two in
+   sync: whenever `AGENTS.md` is re-instantiated or its §7/§8 mechanics change,
+   re-instantiate `START_HERE.md` too.
 
    The template's own header block carries the full instantiation procedure. The parts that
    are load-bearing:
