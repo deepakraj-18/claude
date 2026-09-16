@@ -17,6 +17,35 @@ Cross-project failure patterns logged by `quality-logger` agent.
 
 <!-- quality-logger appends patterns below this line -->
 
+### [PATTERN-005] AC naming multiple paths but test covering only one path (sampling vs. enumeration)
+
+**Root cause category:** RULE-MISS
+**Produced by:** internal (tester)
+**Affected rule/agent:** `~/.claude/rules/guard-tests.md` § 1 (Enumerate the population)
+**Count:** 1 occurrence
+**Projects affected:** Kurunji backend
+**Tasks:** BD004 (Kurunji backend — Settings flow)
+**Status:** ✅ Fixed — 2026-09-16: added the AC-enumeration example and rate-limit case study
+to `guard-tests.md` §1; added an explicit "Test coverage: [path → test name]" sub-item
+requirement to `task-planner.md`'s new Acceptance criteria discipline section; added a
+matching per-path test step to `tester.md`'s job list and its guard-tests summary.
+
+**Pattern description:**
+Acceptance criterion explicitly names multiple state/path variations (e.g., "action X from State A or State B returns to menu"), implementation handles all variations correctly, but test coverage only exercises one representative case. Guard test passes despite missing coverage for the second path; regression injected into the second path alone does not fail the suite. Example: BD004 AC #8 named both Settings and SettingsAddress states; test only covered Settings. Reviewer proved the gap by deleting the SettingsAddress branch and observing all 12 tests still passed.
+
+This violates `guard-tests.md` rule #1: "Enumerate the population — never sample it." When an AC lists N paths separated by "or" or commas, each path is part of the population and needs its own test case.
+
+**Recommended fix:**
+1. **Clarify `guard-tests.md` § 1:** Add concrete example showing AC with multiple paths and proper enumeration:
+   - ❌ AC: "back_to_menu from Settings or SettingsAddress returns to menu" → 1 test (sampling)
+   - ✅ AC: "back_to_menu from Settings or SettingsAddress returns to menu" → 2 tests (enumerate both)
+2. **Task-planner template:** When creating test-coverage acceptance criteria, add a sub-item "Test coverage: [list each path/state variation and the test name that exercises it]" to force explicit enumeration into the AC.
+3. **Tester agent brief:** Add step before completing a task: "For each path named in an AC with 'or' or multiple variations, confirm ≥1 dedicated test per path. Inject regression in each path alone; each must fail."
+
+**Last seen:** 2026-09-14 (Kurunji backend BD004, SettingsFlowTests.cs guard test)
+
+---
+
 ### [PATTERN-004] Developer does not follow explicit fallback branching instructions
 
 **Root cause category:** RULE-MISS
@@ -25,7 +54,10 @@ Cross-project failure patterns logged by `quality-logger` agent.
 **Count:** 1 occurrence
 **Projects affected:** SIMS frontend
 **Tasks:** TASK-017 (Razorpay payment flow)
-**Status:** 🟡 Monitoring
+**Status:** ✅ Fixed — 2026-09-16: added a fallback-base-branch verification step to
+`developer.md` step 4 (`git merge-base --is-ancestor` check against both primary and
+fallback, recorded in `Last Checkpoint`); added the matching AC requirement to
+`task-planner.md`'s Acceptance criteria discipline section.
 
 **Pattern description:**
 Task description explicitly instructed "if dev doesn't have TASK-016 merged, branch from `task/TASK-016-fee-foundation` as fallback" due to expected stale-ref scenario. Developer instead branched from `origin/dev` (a stale remote ref predating TASK-016's reviewed implementation) and re-implemented TASK-016's already-reviewed foundation files as untested duplicates. Main deliverable (`src/presentation/pages/Fees.tsx`) was never touched. Detection required direct git inspection (git diff --stat, git reflog) rather than developer's own report, which claimed "Perfect!" while its own itemized "Remaining Work" list contradicted that framing.
@@ -47,7 +79,11 @@ Task description explicitly instructed "if dev doesn't have TASK-016 merged, bra
 **Count:** 1 occurrence in workflow; 6+ in codebase (systemic)
 **Projects affected:** SIMS backend
 **Tasks:** TASK-026 (rate limiting on /auth/login and /auth/refresh)
-**Status:** 🔴 ACTION REQUIRED
+**Status:** ✅ Fixed — 2026-09-16: added a "Partition per client" subsection to
+`api-design.md`'s Rate Limiting section with the `AddFixedWindowLimiter` footgun and correct
+`RateLimitPartition` pattern; added the matching case study to `guard-tests.md` §1. SIMS
+backend remediation of the six existing instances is a separate follow-up task, not a rule
+change — tracked in that project's own tracker, not here.
 
 **Pattern description:**
 ASP.NET Core's `AddFixedWindowLimiter(name, opts => ...)` simple overload creates a single global rate-limit bucket shared by all clients, not per-client limits as developers typically expect. One unauthenticated attacker sending requests at the limit rate exhausts the global bucket and locks all users out. Code comments often claim "per IP" but implementation is global. This is a non-obvious API footgun; developers reaching for the simpler overload (not reading the full partitioning API docs) hit it repeatedly. SIMS backend has six instances: TASK-026 added two (`login`, `refresh`); five pre-existing policies (`register`, `catalog`, `verify`, `forgot-password`, `token-action`) appear to have the same issue, indicating systemic adoption of the wrong pattern across the rate-limiting surface.
@@ -71,11 +107,12 @@ ASP.NET Core's `AddFixedWindowLimiter(name, opts => ...)` simple overload create
 
 **Root cause category:** RULE-MISS
 **Affected rule:** `~/.claude/rules/guard-tests.md` § 3
-**Produced by:** internal
-**Count:** 3 occurrences
-**Projects affected:** SIMS frontend, liverates-fd
-**Tasks:** TASK-001 (SIMS: interceptor-handler-index mismatch), TASK-008 (SIMS: Batches envelope-unwrap), FI001 (liverates-fd: WebSocket URL guard)
-**Status:** 🔴 ACTION REQUIRED
+**Affected project:** SIMS frontend (spear_sims_frontend)
+**Count:** 2 occurrences
+**Projects affected:** SIMS frontend
+**Tasks:** TASK-001 (interceptor-handler-index mismatch), TASK-008 (Batches envelope-unwrap)
+**Status:** ✅ Fixed — 2026-09-16: added the self-referential-assertion ❌/✅ example to
+`guard-tests.md` §3 (asserting against your own mock vs. asserting against rendered output).
 
 **Pattern description:**
 Guard test blocks assert against the test's own local mock variables, mock call counts, or test-reimplemented logic instead of asserting against rendered DOM output or exposed component state. This violates guard-tests.md §3 ("Never cite a number from one scope as evidence about another") and §2 ("Prove the guard fails"). Example: liverates-fd FI001 has 6 of 8 tests that reimplements URL-construction and guard logic inline (e.g., `const expectedUrl = \`wss://${wsHost}/ws\`` in test) instead of importing App.jsx and exercising connectWebSocket(); when the pre-task regression was reintroduced, only 2/8 tests failed — the 6 self-referential tests stayed green. SIMS frontend TASK-008 asserts only that a fetch call happened, not that resolved value populated the dropdown.
@@ -99,7 +136,9 @@ Guard test blocks assert against the test's own local mock variables, mock call 
 **Count:** 1 occurrence
 **Projects affected:** SIMS backend
 **Tasks:** TASK-011 (SIMS backend)
-**Status:** 🟡 Monitoring
+**Status:** ✅ Fixed — 2026-09-16: `dev-manager.md`'s per-task loop (step 4) now says that
+pre-existing uncommitted changes of unknown origin found at `check-clean` must be routed
+through a normal `developer` dispatch rather than adopted directly as the task's checkpoint.
 
 **Pattern description:**
 When unverified external-origin code (e.g. from an external tool session, pre-existing as uncommitted changes) is adopted as a developer-stage checkpoint and forwarded directly to tester without a fresh `developer` verification pass, AC defects bypass the developer's normal gate and surface only at tester stage. Example: missing config fields, architectural-layer violations that a developer would catch immediately.

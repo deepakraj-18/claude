@@ -113,6 +113,19 @@ Pending
 
 Note: `Relevant tests pass` and `Tests were not weakened or removed` are no longer written as acceptance criteria — they're structurally guaranteed by the `tester`/`reviewer` split (see `agents/tester.md`, `agents/reviewer.md`) rather than something the developer self-certifies. Keep `Acceptance Criteria` focused purely on observable behavior.
 
+## Acceptance criteria discipline
+
+- **An AC naming multiple paths or states needs one test per path, not one test for the AC.**
+  When a criterion reads "action X from State A or State B does Y," each state named is part
+  of the population `guard-tests.md` §1 requires you to enumerate. Write it as a sub-item that
+  forces the split explicitly: "Test coverage: [State A → test name], [State B → test name]."
+  A single test covering only the first-listed state has shipped as a passing guard that
+  couldn't detect a regression in the second.
+- **A task that states a fallback base branch** ("branch from X if Y is unavailable") needs an
+  explicit AC verifying which base was actually used: "Branch base confirmed to be either the
+  primary or the stated fallback, not an older ref; task file's `Dev Checkpoint` records which."
+  Without this, a stale ref can pass as "done" while re-implementing already-reviewed work.
+
 ## Status lifecycle
 
 Tasks you create always start at `Status: Pending`. From there: `Pending` → (`developer`) → `Implemented` → (`tester`) → `Review` → (`reviewer`) → `PASS` or `FAIL` (with `Failed Stage: Developer` or `Failed Stage: Tester`) → retry back into the matching stage, or `Escalated-Sonnet` / `Escalated` once attempts are exhausted. You only ever write the starting state; the rest is `dev-manager`'s to manage.
