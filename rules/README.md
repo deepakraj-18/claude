@@ -11,6 +11,7 @@ Lives at `~/.claude/rules/` once installed. Each file is binding convention for 
 | `react-native.md` | Mobile — React Native via the Community CLI (not Expo) |
 | `dotnet.md` | Backend — .NET |
 | `sql-server.md` | Database — SQL Server |
+| `playwright.md` | E2E/QA — conditional, binding on `qa-tester` when a task's `QA:` field is `Playwright` |
 
 `destructive-operations.md` is the one file here that is not a stack rule. It always applies. It was written after a `tester` agent ran `git clean -fd` in a repository with zero commits and destroyed an entire project — documents, original design assets, and all source — unrecoverably.
 

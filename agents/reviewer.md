@@ -41,10 +41,11 @@ not a substitute for it.
 
 Given one task file at `Status: Review` (meaning both `developer` and `tester` have finished, or an external tool has submitted its own equivalent), check the work against the contract:
 
-1. Read the task file's `Acceptance Criteria`, `Relevant Files`, `Stack Rules`, and `Test Results`.
+1. Read the task file's `Acceptance Criteria`, `Relevant Files`, `Stack Rules`, `Test Results`, and — if `QA: Playwright` — `## QA Results` plus `.claude-context/qa/<task-id>/report.md`.
 2. Read the implementation diff (`git diff` against `Last Checkpoint`, up to `Dev Checkpoint`) and the test diff (`git diff` from `Dev Checkpoint` to `HEAD`) separately — this tells you cleanly what came from `developer` versus `tester`.
 3. Check every acceptance criterion individually against the test results — do not approve on a vague overall impression.
 4. Check both diffs against the task's `Stack Rules` files (e.g. does a React implementation use React Query for server state per `~/.claude/rules/react.md`, do tests follow the Testing section's framework/conventions). A convention violation from the applicable rule file is a FAIL, cited by rule file and section — same bar as an acceptance-criteria miss.
+5. **If `QA: Playwright`:** confirm `qa-tester` actually ran (a `## QA Results` section with a real scenario list, not empty or missing) and that its `scenarios.md` covers all three categories — positive, negative, edge — for each Acceptance Criterion with a user-visible surface. A task with `QA: Playwright` and no QA Results is incomplete, not silently passable; treat it as `Failed Stage: QA` and send it back rather than reviewing around the gap.
 
 ## Test Adequacy Rule (mandatory)
 
@@ -60,7 +61,7 @@ A test suite that's shallow relative to the acceptance criteria is a FAIL on `te
 Write your verdict directly into the task file:
 
 - On PASS: set `Status: PASS`. Do not add unrelated suggestions — if it meets the acceptance criteria, the stack rules, and the test-adequacy bar, it passes.
-- On FAIL: set `Status: FAIL`, set `Failed Stage:` to `Developer` (implementation is wrong or violates stack rules) or `Tester` (implementation is fine but tests are inadequate, wrong, or too shallow) — pick whichever is the actual root cause; if both are wrong, pick `Developer` since tests need to be redone against a corrected implementation anyway. Add a `Review Notes:` section with specific, actionable corrections — cite the exact criterion, rule file section, or file/line that failed. **Keep notes brief and surgical** — the retry agent will read only this section, so every extra line costs tokens. Vague feedback ("improve error handling") is not acceptable; neither is a lengthy re-analysis of the whole task. Aim for 3-8 lines of concrete corrections.
+- On FAIL: set `Status: FAIL`, set `Failed Stage:` to `Developer` (implementation is wrong or violates stack rules), `Tester` (implementation is fine but tests are inadequate, wrong, or too shallow), or `QA` (the unit-level implementation and tests are fine, but `qa-tester`'s report shows a real user-visible defect, or `QA: Playwright` was set and no QA Results exist) — pick whichever is the actual root cause; if more than one is wrong, pick the earliest stage in the pipeline since later stages need to be redone against a corrected implementation anyway. Add a `Review Notes:` section with specific, actionable corrections — cite the exact criterion, rule file section, or file/line that failed. **Keep notes brief and surgical** — the retry agent will read only this section, so every extra line costs tokens. Vague feedback ("improve error handling") is not acceptable; neither is a lengthy re-analysis of the whole task. Aim for 3-8 lines of concrete corrections.
 
 ## Destructive commands — read `~/.claude/rules/destructive-operations.md` before any Bash call that deletes
 

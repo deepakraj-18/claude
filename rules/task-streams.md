@@ -100,6 +100,7 @@ Blocks: BD048
 Repo: <project>-backend
 Estimate: 1.5
 Spec: docs/task_plan.md
+QA: None
 
 ## Description
 ## Acceptance Criteria
@@ -108,6 +109,7 @@ Spec: docs/task_plan.md
 ## Notes
 ## Review Notes
 ## Test Results
+## QA Results
 ```
 
 - `Status` values: `Pending` → `In Progress` → `Implemented` → `Review` → `PASS`, plus
@@ -117,6 +119,10 @@ Spec: docs/task_plan.md
   is useless for reverting a component.
 - `Blocks` is the inverse of `Dependencies`. Maintaining both makes "what does this unblock?"
   answerable without scanning every file, which is what `dev-manager` needs to pick the next task.
+- `QA` is `Playwright` or `None`, set by `task-planner` (see `~/.claude/rules/playwright.md`).
+  `FI` tasks default to `Playwright`; an `FD` or `BD` task gets it only when its Acceptance
+  Criteria describe browser-observable behavior. `None` means `dev-manager` skips `qa-tester`
+  entirely for this task — most `DB`/`SC`/`IF` tasks have nothing for a browser to click.
 
 ## Claiming a task — before you write any code
 

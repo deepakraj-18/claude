@@ -7,7 +7,8 @@ nothing else needs it.
 
 ## Agent Roster
 
-Pipeline: `gatherer` → `planner` → `task-planner` → `developer` → `tester` → `reviewer` →
+Pipeline: `gatherer` → `planner` → `task-planner` → `developer` → `tester` → `qa-tester`
+(conditional — only when a task's `QA:` field is `Playwright`) → `reviewer` →
 `security-scanner` → `docs-writer`, coordinated by `dev-manager`. Outside the loop:
 `devops-engineer` (repo topology/CI), `business-analyst` (tracker/state), `git-setup`
 (git init), `bug-triage` (error → bugfix requirements), `quality-logger` (FAIL/BLOCKED/
@@ -38,6 +39,7 @@ repo-level column. Details + incident history: `~/.claude/rules/external-agents.
 | Git workflow | GitHub Flow | `git-workflow.md` |
 | Task streams | Universal — binding on task-planner | `task-streams.md` |
 | Guard tests | Universal — binding on tester + reviewer | `guard-tests.md` |
+| E2E / QA (Playwright) | Conditional — binding on qa-tester when `QA: Playwright` | `playwright.md` |
 | Destructive ops | Universal — every agent with Bash | `destructive-operations.md` |
 | Memory | Universal | `memory.md` |
 

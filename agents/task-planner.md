@@ -89,6 +89,9 @@ Blocks:
 <ids that depend on this -- the inverse of Dependencies. Lets dev-manager answer "what
  does finishing this unlock?" without scanning every file.>
 
+QA:
+<Playwright | None. See "QA scoping" below.>
+
 Stack Rules:
 <comma-separated ~/.claude/rules/*.md files from plan.md's "Applicable stack rules" line that are relevant to this specific task — e.g. a backend API task lists ~/.claude/rules/dotnet.md, ~/.claude/rules/sql-server.md, ~/.claude/rules/error-handling.md, and ~/.claude/rules/api-design.md; a frontend task lists ~/.claude/rules/react.md and ~/.claude/rules/error-handling.md. ALWAYS include ~/.claude/rules/constants.md>
 
@@ -113,6 +116,22 @@ Pending
 
 Note: `Relevant tests pass` and `Tests were not weakened or removed` are no longer written as acceptance criteria — they're structurally guaranteed by the `tester`/`reviewer` split (see `agents/tester.md`, `agents/reviewer.md`) rather than something the developer self-certifies. Keep `Acceptance Criteria` focused purely on observable behavior.
 
+## QA scoping
+
+Set `QA: Playwright` when the task has a browser-observable surface for `qa-tester` to
+exercise:
+- **Always** for `FI` tasks — by definition they wire a screen to a real endpoint, which is
+  exactly what an E2E pass verifies.
+- **Sometimes** for `FD` or `BD` tasks — only when an Acceptance Criterion itself describes
+  something a user would see or click ("the form shows a validation error", "the confirmation
+  page renders the order total"), not internal/API-only behavior.
+- **`None`** otherwise — most `DB`, `SC`, and `IF` tasks, and any `BD` task whose surface is
+  API-only. Sending these to `qa-tester` anyway wastes a Playwright run on nothing to click.
+
+When in doubt, prefer `None` and let `reviewer` escalate if it turns out the task shipped a
+UI change with no E2E coverage — a missed `Playwright` flag is cheaper to catch there than a
+wasted browser run is to catch here.
+
 ## Acceptance criteria discipline
 
 - **An AC naming multiple paths or states needs one test per path, not one test for the AC.**
@@ -128,7 +147,7 @@ Note: `Relevant tests pass` and `Tests were not weakened or removed` are no long
 
 ## Status lifecycle
 
-Tasks you create always start at `Status: Pending`. From there: `Pending` → (`developer`) → `Implemented` → (`tester`) → `Review` → (`reviewer`) → `PASS` or `FAIL` (with `Failed Stage: Developer` or `Failed Stage: Tester`) → retry back into the matching stage, or `Escalated-Sonnet` / `Escalated` once attempts are exhausted. You only ever write the starting state; the rest is `dev-manager`'s to manage.
+Tasks you create always start at `Status: Pending`. From there: `Pending` → (`developer`) → `Implemented` → (`tester`) → `Review` → (`qa-tester`, only if `QA: Playwright`) → (`reviewer`) → `PASS` or `FAIL` (with `Failed Stage: Developer`, `Failed Stage: Tester`, or `Failed Stage: QA`) → retry back into the matching stage, or `Escalated-Sonnet` / `Escalated` once attempts are exhausted. You only ever write the starting state; the rest is `dev-manager`'s to manage.
 
 ## Sizing rules
 
