@@ -115,16 +115,17 @@ ASP.NET Core's `AddFixedWindowLimiter(name, opts => ...)` simple overload create
 `guard-tests.md` §3 (asserting against your own mock vs. asserting against rendered output).
 
 **Pattern description:**
-Guard test blocks in this project assert against the test's own local mock variables (`expect(mockVariable)`, `expect(localFixture)`) or mock call counts (`expect(apiClient.get).toHaveBeenCalledWith(url)`) instead of asserting against rendered DOM output or exposed component state. This violates guard-tests.md §3 ("Never cite a number from one scope as evidence about another") and §2 ("Prove the guard fails"). The tests pass (all 18 or 51 pass) but would pass even if the bug being guarded against were reintroduced. Example: Batches.test.tsx's "populate state" tests assert only that a fetch call happened, not that the resolved value actually populated the dropdown options — tests would be green both before and after the fix.
+Guard test blocks assert against the test's own local mock variables, mock call counts, or test-reimplemented logic instead of asserting against rendered DOM output or exposed component state. This violates guard-tests.md §3 ("Never cite a number from one scope as evidence about another") and §2 ("Prove the guard fails"). Example: liverates-fd FI001 has 6 of 8 tests that reimplements URL-construction and guard logic inline (e.g., `const expectedUrl = \`wss://${wsHost}/ws\`` in test) instead of importing App.jsx and exercising connectWebSocket(); when the pre-task regression was reintroduced, only 2/8 tests failed — the 6 self-referential tests stayed green. SIMS frontend TASK-008 asserts only that a fetch call happened, not that resolved value populated the dropdown.
 
 **Recommended fix:**
-1. Add a concrete example to guard-tests.md §3 showing the self-referential anti-pattern:
-   - ❌ `expect(mockCourses).toEqual([...])` — asserts against your own fixture, not the implementation
-   - ✅ `expect(screen.getAllByRole('option')).toHaveLength(mockCourses.length)` — asserts against rendered output
-2. In task acceptance criteria for guard tests, require explicit assertion on rendered output or component state, not mock call counts or local variables.
-3. In SIMS frontend retro, flag tester's guard test blocks for review-before-sign-off to catch this pattern early.
+1. Add a concrete example to guard-tests.md §3 showing the self-referential anti-pattern with two sub-types:
+   - ❌ **Reimplements logic inline:** Test duplicates URL construction, guard logic, or mock setup instead of importing/rendering real component
+   - ❌ **Asserts against test's own fixtures:** `expect(mockCourses).toEqual([...])` asserts against test's own variables, not implementation output
+   - ✅ **Exercises production code:** Import component, render it (or call its functions), mock only external dependencies (WebSocket, fetch), assert on actual output
+2. In task acceptance criteria for guard tests, require explicit assertion on rendered output, component state, or function return values — never on mock call counts or test-local variables.
+3. In tester agent brief, add mandatory pre-submission step: Run regression injection (per guard-tests.md §2) and confirm the test fails when the bug is reintroduced. A test that stays green under full regression is a guard that guards nothing.
 
-**Last seen:** 2026-08-24 (SIMS frontend TASK-008, Batches.test.tsx guard test block lines 381–518)
+**Last seen:** 2026-09-10 (liverates-fd FI001, 6 of 8 tests in src/App.test.jsx reimplemented guard logic and stayed green under regression injection)
 
 ---
 
