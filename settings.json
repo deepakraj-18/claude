@@ -164,6 +164,7 @@
     ]
   },
   "tui": "fullscreen",
+  "agentPushNotifEnabled": true,
   "_comment": "Global settings for the Opus/Sonnet/Haiku dev workflow. The 'permissions' block pre-approves safe commands so agents run without prompting. block-dangerous.sh is a second safety net that can still block commands even if they match an allow pattern.",
   "_manual_invocations": {
     "_comment": "These hooks are called directly by dev-manager at specific points in the loop — not on every tool call:",
@@ -172,6 +173,5 @@
     "revert_on_fail": "bash ~/.claude/hooks/git-checkpoint.sh revert .claude-context/tasks/TASK-<id>.md",
     "commit_on_pass": "bash ~/.claude/hooks/git-checkpoint.sh commit TASK-<id> \"<summary>\"",
     "run_tests": "bash ~/.claude/hooks/run-tests.sh"
-  },
-  "agentPushNotifEnabled": true
+  }
 }
