@@ -1,106 +1,90 @@
 # Guard Tests — Rules for Claude
 
-**Binding on `tester` and `reviewer`.** A guard test exists to fail when something regresses. A guard test that cannot fail is worse than no test at all: it retires the question, and everyone downstream believes the property is protected.
-
-This file exists because that happened five times in six tasks on one project. Every instance passed CI, read as thorough, and checked less than it appeared to.
-
----
-
-## The five ways a guard silently checks nothing
-
-Each of these shipped, passed, and was caught only by review.
-
-| # | What happened | Why it passed |
-|---|---|---|
-| 1 | An empty `UnitTest1.Test1()` template stub was cited as evidence tests ran | It genuinely passed — it asserted nothing |
-| 2 | Enumerated constants had "contains" assertions, no completeness check | Renaming `Shipped` → `Dispatched` kept the count and the members it checked for |
-| 3 | An integration project had three compile errors, so its tests never ran, while "61/61 passing" was reported | The 61 came from a *different* project in the same solution |
-| 4 | A UTC value converter existed only in the test's own `TestDbContext`; production had none | The test validated its own setup, in a parallel context |
-| 5 | A money-column test filtered by `LIKE '%Amount%'` and silently excluded one of the six columns the criterion named | The filter looked exhaustive and was not |
-
-The common shape: **a number or a green tick that is true of something other than the thing being claimed.**
-
----
+**Binding on `tester` and `reviewer`.** A guard test exists to fail when something
+regresses. One that *cannot* fail is worse than none — it retires the question and everyone
+downstream believes the property is protected. This happened five times in six tasks on one
+project; every instance passed CI and checked less than it appeared to. The common shape:
+**a number or a green tick that is true of something other than the thing being claimed.**
+Full five-case table: `~/.claude/rules/appendix/incidents.md`.
 
 ## 1. Enumerate the population — never sample it
 
-For any finite set — enum members, columns of a type, indexes, routes, roles — the guard must cover the **whole population**, not a filter over it.
-
-**Prefer querying the population over listing it.** A hardcoded list is a guard that needs maintenance and will drift; a population query stays correct as the system grows.
+For any finite set — enum members, columns of a type, indexes, routes, roles — cover the
+**whole population**, not a filter over it. Prefer *querying* the population to listing it;
+a hardcoded list drifts.
 
 ```csharp
-// ❌ Heuristic filter — silently misses whatever doesn't match the pattern
+// ❌ heuristic filter — misses whatever doesn't match
 WHERE COLUMN_NAME LIKE '%Amount%' OR COLUMN_NAME LIKE '%Price%'
-
-// ⚠️ Explicit list — correct today, stale the moment a column is added
-var money = new[] { "Subtotal", "TotalAmount", "CgstAmount", /* ... */ };
-
-// ✅ Population query — self-maintaining, covers columns that don't exist yet
+// ✅ population query — self-maintaining
 WHERE DATA_TYPE = 'decimal' AND (NUMERIC_PRECISION != 18 OR NUMERIC_SCALE != 2)
 ```
 
-Use an explicit list only when there is no natural population to query, and then say in the test's name or a comment what keeps it in sync.
-
-**Exact-set equality, not membership.** `Assert.Contains(x, set)` tells you one member survived. Compare the whole set:
-
-```csharp
-// ❌ Passes after a rename, an addition, or a removal
-Assert.Contains("shipped", statuses);
-
-// ✅ Fails on rename, addition, and removal alike
-Assert.Equal(new HashSet<string> { "new","confirmed","shipped","delivered","cancelled" }, statuses);
-```
-
+**Exact-set equality, not membership.** `Assert.Contains(x, set)` passes after a rename, an
+addition, or a removal. `Assert.Equal(new HashSet<string>{...}, actual)` fails on all three.
 A count check is not set equality — five members stays five when one is renamed.
+
+**An acceptance criterion naming multiple paths is also a population.** "Action X from State
+A or State B returns to menu" names two states — a test covering only State A is sampling,
+not enumeration, and a regression injected into State B alone won't fail the suite. One test
+per named path, minimum.
+
+**Case study — rate limits.** A test suite backed by one shared `HttpClient`/client identity
+cannot tell a per-client limiter from a global one; both look identical from a single caller.
+`AddFixedWindowLimiter(name, opts => ...)`'s simple overload creates one global bucket for
+every caller regardless of a comment claiming "per IP" — see `api-design.md`'s Rate Limiting
+section. A multi-client guard needs separate `HttpClient`/IP identities and must assert that
+one identity's consumption never reduces another's remaining quota.
 
 ## 2. Prove the guard fails
 
-**A guard you have not watched fail is not yet a guard.** Before reporting a guard test complete:
+A guard you have not watched fail is not yet a guard. Before reporting one complete: back up
+the file (scratchpad + checksum), inject the *exact* regression it exists to catch, run and
+observe the failure message, restore from backup and verify the checksum, re-run green.
+Report the failing output alongside the passing one. Never restore with `git checkout --` /
+`git restore` (see `destructive-operations.md`) — restore from your backup.
 
-1. Back up the file you will edit, to the scratchpad, and record a checksum
-2. Inject the *exact* regression the guard exists to catch — not a nearby one
-3. Run the test and observe the failure, with its message
-4. Restore from the backup and verify the checksum matches
-5. Re-run and confirm green
-
-Report the failing output alongside the passing output. "The test passes" is not evidence about what it would do if the code were wrong.
-
-Never restore with `git checkout --` or `git restore` — see `destructive-operations.md`. Restore from your backup.
-
-## 3. A test fixture must never supply behaviour production lacks
+## 3. A fixture must never supply behaviour production lacks
 
 If a test configures something to make its assertion pass, the assertion is about the test.
+Red flag: fixture setup the production path lacks — a converter, mapping, default,
+registration. A fixture exercising production behaviour must *derive from or delegate to*
+the production type (a test `DbContext` inherits it and calls `base.OnModelCreating`, it
+does not re-declare config). Disabling test: turn the production feature off — if the test
+still passes, it was never testing production.
 
-**Red flag:** the fixture has setup the production path does not have — a converter, a mapping, a default, a registration.
+**Self-referential assertions are the same failure in different clothes.** Asserting against
+your own mock variable, or that a mock was *called*, proves the test invoked its own fixture
+— not that the result reached production behaviour.
 
-**Rule:** a fixture that exercises production behaviour must *derive from or delegate to* the production type. Given a `DbContext`, the test context inherits it and calls `base.OnModelCreating`. It does not re-declare the configuration.
+```tsx
+// ❌ asserts against your own fixture — passes even if the fetched data never reached the DOM
+expect(mockCourses).toEqual([...])
+expect(apiClient.get).toHaveBeenCalledWith(url)
 
-When in doubt, apply the disabling test: turn the production feature off. If the test still passes, it was never testing production.
+// ✅ asserts against rendered output — fails if the resolved value never populated the UI
+expect(screen.getAllByRole('option')).toHaveLength(mockCourses.length)
+```
 
 ## 4. Never cite a number from one scope as evidence about another
 
-A green summary line for one project says nothing about a sibling that failed to compile. Before quoting a test count:
-
-- Confirm the **build** succeeded across everything in scope, not just that some tests ran
-- Confirm every project you are claiming for **appears in the output with a real count**
-- "No test is available in X" means the tests did not run — it is not a pass
-
-Runners help here. `~/.claude/hooks/run-tests.sh` builds first and refuses to run tests on a build failure, precisely so a stale green line cannot mask a broken project.
+A green line for one project says nothing about a sibling that failed to compile. Before
+quoting a test count: confirm the **build** succeeded across everything in scope; confirm
+every project you claim for appears in the output with a real count; "no test is available
+in X" means tests did not run, not a pass. `~/.claude/hooks/run-tests.sh` builds first and
+refuses to run on a build failure, precisely so a stale green line can't mask a broken
+project.
 
 ## 5. An empty or always-true test is a defect
 
-Delete `dotnet new` / framework template stubs rather than leaving them. An assertion-free test inflates the count and makes a green run meaningless. Never cite one as evidence.
-
----
+Delete `dotnet new` / framework template stubs. An assertion-free test inflates the count
+and makes a green run meaningless. Never cite one as evidence.
 
 ## For `reviewer`
 
-Test adequacy is part of the contract, not a courtesy pass. Judge every guard against:
-
-- **Does it enumerate or sample?** A `LIKE`, a name heuristic, or a hand-written subset over a finite population is a FAIL.
-- **Would it survive a rename?** Membership assertions usually would — wrongly.
-- **Was a failure demonstrated?** If not, demonstrate it yourself before accepting. Reviewers on the project behind this file did exactly that twice and found one genuine guard and one that needed rewriting — inspection alone would have passed both.
-- **Does the fixture configure what production should?** Compare test setup against production setup and account for every difference.
-- **Do the claimed numbers match what actually ran?** Re-run rather than reading the recorded figure.
-
-A task whose implementation is correct but whose tests cannot detect regression is a **FAIL on the tester**, not a pass with a note. The implementation is right today; the tests are what keep it right.
+Test adequacy is part of the contract. Judge every guard: Does it enumerate or sample (a
+`LIKE`, name heuristic, or hand-written subset over a finite population is a FAIL)? Would it
+survive a rename? Was a failure demonstrated — if not, demonstrate it yourself before
+accepting. Does the fixture configure what production should? Do the claimed numbers match
+what actually ran (re-run, don't read the recorded figure)? A correct implementation whose
+tests cannot detect regression is a **FAIL on the tester**, not a pass with a note.
