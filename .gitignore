@@ -6,6 +6,8 @@
 !agents/**
 !skills/
 !skills/**
+skills/synced/
+skills/.trash/
 !rules/
 !rules/**
 !hooks/
